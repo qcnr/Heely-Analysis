@@ -4,4 +4,4 @@
 
 /results generates whenever plot.py is ran, with run time analysis and queries
 
-/tests 
+/tests contains our file of tests for Dijkstra's
