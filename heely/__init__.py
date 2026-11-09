@@ -1,5 +1,4 @@
-"""Heelys routing on hilly grid worlds (CS 351 final project). Checkpoint: Dijkstra."""
-
+'''init file!'''
 from .graph import Graph, make_grid, edge_cost
 from .dijkstra import dijkstra, shortest_path, QueryResult
 
