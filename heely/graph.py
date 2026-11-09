@@ -1,18 +1,12 @@
-"""Grid-world generation for the Heelys routing problem.
+"""generates a grid-world for our problem.
 
-A world is an n x n grid of nodes. Every node has an elevation. Each node is
+A world is an n x n grid of nodes where every node has an elevation and eachh node is
 joined to its four grid neighbours by two directed edges (one each way), and
-the cost of an edge depends on which way you are travelling along it:
+the cost of an edge depends on which way you are travelling along it
 
-    cost(u -> v) = 0  if elev(v) < elev(u)   (downhill: you roll for free)
-    cost(u -> v) = 1  otherwise               (flat or uphill: you have to push)
-
-So the cost of a route is the number of pushes it takes, and the shortest
-path is the route with the fewest pushes. The proposal phrased the weights the
-other way round (downhill = 1); we flipped them so that "shortest path" and
-"best Heelys route" mean the same thing. See the progress report, section (a).
-
-Node indexing: node (row r, column c) has index r * n + c.
+the cost function returns 0 if it's downhill and 1 if it's not downhill where 1 is considered a push ie you 
+have to push to go forward. The shortest path is the one with the fewest pushes so the one with the least amount of
+cost = 1.
 """
 
 from __future__ import annotations
@@ -21,26 +15,21 @@ import math
 import random
 from dataclasses import dataclass, field
 
-
+#determines whether downhill
 def edge_cost(elev_u: float, elev_v: float) -> int:
-    """Cost of travelling from a node at elevation elev_u to one at elev_v."""
     return 0 if elev_v < elev_u else 1
 
-
+#is a nxn graph with costs of either 0 or 1 laid on on graph.
 @dataclass
 class Graph:
-    """A directed graph with 0/1 edge costs laid out on an n x n grid.
-
-    adj[u] is a list of (v, cost) pairs for edges u -> v.
-    """
 
     n: int
     elev: list[float]
-    adj: list[list[tuple[int, int]]] = field(repr=False)
+    adj: list[list[tuple[int, int]]] = field(repr=False) #each index of adj is the adjacent vertices and costs to them
 
     @property
     def V(self) -> int:
-        return self.n * self.n
+        return self.n * self.n #creat nxn grid
 
     @property
     def E(self) -> int:
@@ -52,23 +41,20 @@ class Graph:
     def rc(self, u: int) -> tuple[int, int]:
         return divmod(u, self.n)
 
+    #given there's an edge, gives the cost of that edge
     def cost(self, u: int, v: int) -> int:
-        """Cost of the edge u -> v. Raises KeyError if there is no such edge."""
         for x, w in self.adj[u]:
             if x == v:
                 return w
         raise KeyError(f"no edge {u} -> {v}")
 
+#total cost of path
     def path_cost(self, path: list[int]) -> int:
-        """Total cost of a path given as a list of node indices."""
         return sum(self.cost(path[i], path[i + 1]) for i in range(len(path) - 1))
 
-
+#super evil to make function :(
+#generates a smooth random terrain and can be reproduced with a seed too
 def make_terrain(n: int, seed: int = 0, n_hills: int | None = None) -> list[float]:
-    """Smooth random terrain: a sum of Gaussian hills (and a few valleys).
-
-    Deterministic for a given (n, seed) so experiments can be reproduced.
-    """
     rng = random.Random(seed)
     if n_hills is None:
         n_hills = max(3, n // 8)
@@ -88,9 +74,8 @@ def make_terrain(n: int, seed: int = 0, n_hills: int | None = None) -> list[floa
             elev[r * n + c] = z
     return elev
 
-
+#uses make_terrain to graph it all
 def graph_from_elevation(n: int, elev: list[float]) -> Graph:
-    """Build the 4-neighbour directed grid graph from an elevation list."""
     if len(elev) != n * n:
         raise ValueError(f"expected {n * n} elevations, got {len(elev)}")
     adj: list[list[tuple[int, int]]] = [[] for _ in range(n * n)]
@@ -105,7 +90,6 @@ def graph_from_elevation(n: int, elev: list[float]) -> Graph:
                     adj[u].append((v, w))
     return Graph(n=n, elev=elev, adj=adj)
 
-
+#generates the grid, called for graphing and eventually plotting everything
 def make_grid(n: int, seed: int = 0) -> Graph:
-    """Generate a random hilly n x n world. Same (n, seed) -> same world."""
     return graph_from_elevation(n, make_terrain(n, seed))

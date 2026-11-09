@@ -1,14 +1,5 @@
-"""Measurement harness.
-
-For each grid side length n (so V = n^2 nodes), build `--grids` random worlds,
-and on each run `--queries` random (s, t) queries with Dijkstra. Record
-wall-clock time, nodes settled, and edges relaxed for every query.
-Correctness is checked separately by the tests (python -m pytest -q).
-
-Usage (defaults reproduce results/queries.csv):
-
-    python -m heely.experiment
-    python -m heely.experiment --sizes 10,20,50 --grids 2 --queries 10 --out results
+"""For each grid size it builds random worlds and queries them with dijkstra then records time, amount 
+of nodes settled and edges relaxed.
 """
 
 from __future__ import annotations
@@ -19,16 +10,16 @@ import os
 import random
 import time
 
-from .dijkstra import shortest_path
-from .graph import make_grid
+from dijkstra import shortest_path
+from graph import make_grid
 
-DEFAULT_SIZES = "10,14,20,32,50,71,100"   # V = 100 ... 10,000 (proposal range)
+DEFAULT_SIZES = "10,14,20,32,50,71,100"   #different sizes we're using for now
 
 
 def run(sizes: list[int], grids: int, queries: int, out: str,
-        seed: int = 0, verbose: bool = True) -> None:
+        seed: int = 0, verbose: bool = True) -> None: #verbose is true when finished and prints out lines that makes it easier for us to see
     os.makedirs(out, exist_ok=True)
-    q_path = os.path.join(out, "queries.csv")
+    q_path = os.path.join(out, "queries.csv") #output file written to new folder stored where this file is
     rng = random.Random(seed)
 
     with open(q_path, "w", newline="") as qf:
@@ -36,6 +27,7 @@ def run(sizes: list[int], grids: int, queries: int, out: str,
         qw.writerow(["n", "V", "E", "grid_seed", "query", "s", "t", "cost",
                      "path_len", "time_s", "settled", "relaxed"])
 
+#creates grid and populates it
         for n in sizes:
             for gi in range(grids):
                 gseed = 1000 * n + gi
@@ -62,7 +54,7 @@ def run(sizes: list[int], grids: int, queries: int, out: str,
         print(f"ran {len(sizes) * grids * queries} queries")
         print(f"wrote {q_path}")
 
-
+#grouped by arguments to make life easier
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)

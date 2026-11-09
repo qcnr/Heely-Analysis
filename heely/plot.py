@@ -1,9 +1,7 @@
 """Make the preliminary plot from results/queries.csv.
-
-    python -m heely.plot                 # reads results/, writes results/preliminary_plot.png
-
-Time per query against V on log-log axes, with a V log V reference line.
-Line = median, band = 25th to 75th percentile.
+Reads data from csv made in graph.py and writes it as a png plot
+Compares amount of nodes to time per query
+Dashed median line, shaded 25th and 75th percentile
 """
 
 from __future__ import annotations
@@ -17,18 +15,19 @@ from collections import defaultdict
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
+#setting colors for graph
 BLUE = "#2a78d6"
 INK, MUTED, GRID = "#1f1f1e", "#6b6a66", "#e2e1dd"
 
-
+#groups by grid size for plotting
 def load(results_dir):
     by_v = defaultdict(lambda: defaultdict(list))
-    with open(os.path.join(results_dir, "queries.csv")) as f:
+    with open(os.path.join(results_dir, "queries.csv")) as f: #need in results folder which is in same folder as this code
         for row in csv.DictReader(f):
             V = int(row["V"])
-            for key in ("time_s", "settled", "cost"):
+            for key in ("time_s", "settled", "cost"): #seperates values
                 by_v[V][key].append(float(row[key]))
     return by_v
 
@@ -40,6 +39,7 @@ def make_plot(results_dir, out_dir=None):
     q = [statistics.quantiles(by_v[v]["time_s"], n=4) for v in V]
     q1, med, q3 = [x[0] for x in q], [x[1] for x in q], [x[2] for x in q]
 
+    #plotting with matplotlib
     fig, ax = plt.subplots(figsize=(6.4, 3.9))
     fig.patch.set_facecolor("white")
     ax.fill_between(V, q1, q3, color=BLUE, alpha=0.15, linewidth=0, zorder=2)
@@ -67,19 +67,10 @@ def make_plot(results_dir, out_dir=None):
     ax.legend(frameon=False, fontsize=9, loc="upper left")
     fig.tight_layout()
     out = os.path.join(out_dir, "preliminary_plot.png")
-    fig.savefig(out, dpi=200)
+    fig.savefig(out, dpi=200) #throws error if preliminary_plot.png already exists so don't run more than once
     plt.close(fig)
 
-    print(f"{'V':>6} {'queries':>7} {'mean ms':>8} {'median ms':>9} {'mean settled':>12} {'frac of V':>9}")
-    for v in V:
-        t = by_v[v]["time_s"]
-        st_ = statistics.mean(by_v[v]["settled"])
-        print(f"{v:>6} {len(t):>7} {statistics.mean(t) * 1000:>8.3f} "
-              f"{statistics.median(t) * 1000:>9.3f} {st_:>12.0f} {st_ / v:>9.2f}")
-    print(f"wrote {out}")
-    return out
-
-
+#main to run code
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
