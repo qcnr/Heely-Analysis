@@ -1,0 +1,73 @@
+\documentclass[11pt]{article}
+\usepackage[letterpaper,margin=0.9in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+\titleformat{\section}{\normalsize\bfseries}{\thesection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{9pt}{3pt}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newcommand{\dist}{\delta}
+\newcommand{\R}{\mathbb{R}}
+
+\title{\vspace{-2.2em}\textbf{Rollin' Down the Biggest Hill: Analysis Draft}\\
+\large Correctness and running time of Dijkstra's algorithm\\
+\normalsize CS 351 Analysis of Algorithms, Project Checkpoint}
+\author{The \textsc{wheel} Ones: Conor Vahey, Felicity Chin, Oscar Yaun}
+\date{\vspace{-1.5em}}
+
+\begin{document}
+\maketitle
+
+\section{Model}
+
+A world is a directed graph $G=(V,E)$. Our test worlds are $n\times n$ grids: each cell is a node with an elevation $\mathrm{el}(v)\in\R$, and each cell has an edge in each direction to each of its four neighbours. The cost of an edge is
+\[
+w(u,v)=\begin{cases}0 & \text{if } \mathrm{el}(v)<\mathrm{el}(u)\ \ \text{(downhill: roll)}\\ 1 & \text{otherwise}\ \ \text{(flat or uphill: push)}.\end{cases}
+\]
+The cost of a path is its number of pushes. $\dist(s,t)$ is the minimum cost of any path from $s$ to $t$. Every edge has a reverse edge, so every node can reach every other node. On a grid $|E| = 4n(n-1) < 4|V|$. All costs are non-negative, which is the property Dijkstra's algorithm needs.
+
+We use the \emph{subpath property}: if $P$ is a shortest path from $s$ to $u$ and $y$ lies on $P$, then the part of $P$ from $s$ to $y$ is a shortest path from $s$ to $y$, since otherwise swapping in a cheaper path would make $P$ cheaper \cite[Lemma~22.1]{clrs}.
+
+\section{The algorithm as implemented}
+
+(\texttt{heely/dijkstra.py}.) Each node $v$ has a tentative distance $d[v]$, initially $\infty$ except $d[s]=0$, and a flag \emph{settled}, initially false. A binary min-heap holds pairs $(d, v)$. Repeat until the heap is empty: pop the pair with the smallest $d$; if $v$ is already settled, skip it; otherwise mark $v$ settled, and stop if $v=t$; otherwise for each edge $(v,x)$, if $d[v]+w(v,x)<d[x]$, set $d[x]\gets d[v]+w(v,x)$, set $\mathrm{parent}[x]\gets v$, and push $(d[x],x)$. Instead of decreasing a key in the heap we push a new pair and skip old ones when they come out (\emph{lazy deletion}), which is the standard way to use Python's \texttt{heapq}. Otherwise this is the algorithm in CLRS Section~22.3 \cite{clrs}.
+
+\section{Correctness}
+
+\begin{lemma}\label{lem:lazy}
+When a pair $(d,v)$ is popped and $v$ is not yet settled, $d=d[v]$, and $d[v]\le d[x]$ for every unsettled node $x$.
+\end{lemma}
+\begin{proof}
+Let $(d,v)$ be an arbitrary popped pair with $v$ unsettled. Every time $d[v]$ was lowered, a pair with the new value was pushed, so the heap holds $(d[v],v)$, and $d[v]\le d$ because $d[v]$ only decreases. Since the heap pops the smallest key and $(d,v)$ came out, $d\le d[v]$, so $d=d[v]$. In the same way every unsettled $x$ with $d[x]<\infty$ has a pair $(d[x],x)$ in the heap, and the heap returned the smallest, so $d[v]\le d[x]$. Because $(d,v)$ was arbitrary, the lemma holds for every pop.
+\end{proof}
+
+\begin{theorem}[CLRS Theorem 22.6]\label{thm:dij}
+When a node $u$ is settled, $d[u]=\dist(s,u)$. In particular, when the algorithm stops at $t$, $d[t]=\dist(s,t)$, and following parent pointers from $t$ back to $s$ gives a path of cost $\dist(s,t)$.
+\end{theorem}
+\begin{proof}
+First, $d[u]\ge\dist(s,u)$ always, because $d[u]$ is either $\infty$ or the cost of a real path built by relaxations, and no path costs less than the distance. Now suppose, for contradiction, that some node is settled with $d$ larger than its distance, and let $u$ be the first such node. Then $u\neq s$, since $d[s]=0=\dist(s,s)$. Let $P$ be a shortest path from $s$ to $u$. When $u$ is settled, $s$ is settled and $u$ is not, so let $y$ be the first node on $P$ that is not settled, and $x$ the node just before it, which is settled. Since $u$ is the first bad node, $d[x]=\dist(s,x)$. When $x$ was settled the edge $(x,y)$ was relaxed, so $d[y]\le\dist(s,x)+w(x,y)=\dist(s,y)$ by the subpath property, and together with $d[y]\ge\dist(s,y)$ this gives $d[y]=\dist(s,y)$. Since $y$ is on $P$ no later than $u$ and costs are non-negative, $\dist(s,y)\le\dist(s,u)$. So $d[y]\le\dist(s,u)<d[u]$. But $u$ was popped while $y$ was unsettled, so by Lemma~\ref{lem:lazy} $d[u]\le d[y]$, a contradiction. So no such $u$ exists.
+
+For the path: when $\mathrm{parent}[x]$ is set to $v$, $v$ is settled, so $d[v]$ is final and $d[x]=d[v]+w(v,x)$. Once $x$ is settled, $d[x]$ and $\mathrm{parent}[x]$ never change. So walking parents back from $t$ passes through settled nodes, each settled strictly earlier than the one before, so the walk cannot loop, and it can only end at $s$, the one settled node without a parent. Each step lowers $d$ by exactly the edge cost, so the path costs $d[t]-d[s]=\dist(s,t)$.
+\end{proof}
+
+\section{Running time}
+
+\begin{theorem}\label{thm:time}
+Dijkstra's algorithm with a binary heap and lazy deletion runs in $O((|V|+|E|)\log|V|)$ time and $O(|V|+|E|)$ space. On an $n\times n$ grid this is $O(n^2\log n)$.
+\end{theorem}
+\begin{proof}
+Each node is settled at most once, and a node's outgoing edges are relaxed only when it is settled, so there are at most $|E|$ relaxations. That means at most $|E|+1$ pushes and at most $|E|+1$ pops. The heap never holds more than $|E|+1$ pairs, so each push or pop costs $O(\log|E|)=O(\log|V|)$, since $|E|\le|V|^2$. Setting up the arrays costs $O(|V|)$. The total is $O(|V|+|E|\log|V|)=O((|V|+|E|)\log|V|)$. The arrays take $O(|V|)$ space, the adjacency lists $O(|V|+|E|)$, and the heap $O(|E|)$. On a grid $|E|<4|V|=4n^2$, so the time is $O(n^2\log n)$.
+\end{proof}
+
+Stopping when $t$ is settled does not change the worst case, but in practice it means only the nodes closer to $s$ than $t$ (plus some ties) are settled. The preliminary results show about half of all nodes being settled on average, which is what the second algorithm, ALT, aims to reduce.
+
+\section*{Sources}
+\begin{thebibliography}{9}
+\bibitem{clrs} Cormen, T. H., Leiserson, C. E., Rivest, R. L., \& Stein, C. (2022). \emph{Introduction to Algorithms} (4th ed.). MIT Press. Chapter 22, Lemma 22.1 and Theorem 22.6.
+\end{thebibliography}
+
+\end{document}
